@@ -3,12 +3,11 @@ import React, { useState, useMemo } from 'react';
 import Layout from './components/Layout';
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
-import BudgetPanel from './components/BudgetPanel';
 import AIFeedback from './components/AIFeedback';
 import Analytics from './components/Analytics';
 import { useStore } from './store/useStore';
 
-type Tab = 'transactions' | 'analytics' | 'budgets' | 'insights';
+type Tab = 'transactions' | 'analytics' | 'insights';
 
 const App: React.FC = () => {
   const { 
@@ -20,17 +19,15 @@ const App: React.FC = () => {
     requestPasswordReset,
     loginWithGoogle,
     transactions, 
-    budgets, 
     addTransaction, 
     deleteTransaction, 
-    updateTransaction,
-    updateBudget 
+    updateTransaction
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('transactions');
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  const filteredData = useMemo(() => {
+  const filteredByMonth = useMemo(() => {
     return transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
@@ -38,17 +35,16 @@ const App: React.FC = () => {
   }, [transactions, currentDate]);
 
   const tabs = [
-    { id: 'transactions', label: 'Journal', icon: '📝' },
+    { id: 'transactions', label: 'Cash flow', icon: '📝' },
     { id: 'analytics', label: 'Reports', icon: '📈' },
-    { id: 'budgets', label: 'Limits', icon: '🛡️' },
-    { id: 'insights', label: 'AI Advisor', icon: '🤖' },
+    { id: 'insights', label: 'AI Strategy', icon: '🤖' },
   ];
 
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 space-y-4">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 font-bold animate-pulse">Syncing RupeeFlow...</p>
+        <p className="text-gray-500 font-bold animate-pulse uppercase tracking-[0.2em] text-xs">Syncing RupeeFlow...</p>
       </div>
     );
   }
@@ -72,14 +68,14 @@ const App: React.FC = () => {
       onLogout={logout}
     >
       <div className="space-y-6">
-        <div className="flex items-center space-x-1 bg-gray-100 p-1.5 rounded-2xl w-fit mx-auto sm:mx-0">
+        <div className="flex items-center space-x-1 bg-white p-1.5 rounded-2xl w-fit mx-auto sm:mx-0 shadow-sm border border-gray-100">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as Tab)}
               className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === tab.id 
-                ? 'bg-white text-indigo-600 shadow-sm' 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
                 : 'text-gray-500 hover:text-gray-800'
               }`}
             >
@@ -92,7 +88,7 @@ const App: React.FC = () => {
         <div className="animate-in fade-in slide-in-from-top-2 duration-500">
           {activeTab === 'transactions' && (
             <Dashboard 
-              transactions={filteredData} 
+              transactions={filteredByMonth} 
               allTransactions={transactions} 
               onAdd={addTransaction} 
               onUpdate={updateTransaction}
@@ -100,19 +96,15 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'analytics' && (
-            <Analytics transactions={filteredData} fullHistory={transactions} />
-          )}
-          {activeTab === 'budgets' && (
-            <BudgetPanel 
-              budgets={budgets} 
-              expenses={filteredData} 
-              onUpdateBudget={updateBudget} 
+            <Analytics 
+              transactions={filteredByMonth} 
+              fullHistory={transactions} 
+              viewingYear={currentDate.getFullYear()}
             />
           )}
           {activeTab === 'insights' && (
             <AIFeedback 
-              expenses={filteredData} 
-              budgets={budgets} 
+              expenses={filteredByMonth} 
             />
           )}
         </div>

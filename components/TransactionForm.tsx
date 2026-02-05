@@ -39,6 +39,27 @@ const TransactionForm: React.FC<Props> = ({ isOpen, onClose, onSubmit, initialDa
     }
   }, [initialData, isOpen]);
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Create the base payload
+    const payload: any = {
+      title: formData.title,
+      amount: parseFloat(formData.amount),
+      category: formData.category,
+      type: formData.type,
+      date: new Date(formData.date).toISOString()
+    };
+
+    // Only add ID if we are editing (prevents sending id: undefined to Firebase)
+    if (initialData?.id) {
+      payload.id = initialData.id;
+    }
+
+    onSubmit(payload);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -49,11 +70,7 @@ const TransactionForm: React.FC<Props> = ({ isOpen, onClose, onSubmit, initialDa
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2">✕</button>
         </div>
 
-        <form className="p-6 space-y-5" onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit({ ...formData, amount: parseFloat(formData.amount), id: initialData?.id });
-          onClose();
-        }}>
+        <form className="p-6 space-y-5" onSubmit={handleSubmit}>
           {/* Type Toggle */}
           <div className="flex p-1 bg-gray-100 rounded-xl">
             <button
@@ -90,6 +107,7 @@ const TransactionForm: React.FC<Props> = ({ isOpen, onClose, onSubmit, initialDa
                 <input 
                   required
                   type="number"
+                  step="any"
                   className="w-full p-3 bg-gray-50 border-transparent border focus:border-indigo-500 focus:bg-white rounded-xl outline-none transition-all"
                   value={formData.amount}
                   onChange={e => setFormData(p => ({ ...p, amount: e.target.value }))}

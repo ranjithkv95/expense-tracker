@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Transaction, Category, Budget, User } from '../types';
+import { Transaction, Category, User } from '../types';
 import { 
   auth, 
   db, 
@@ -21,18 +21,14 @@ import {
   addDoc, 
   deleteDoc, 
   doc, 
-  updateDoc, 
-  setDoc,
-  getDocs
+  updateDoc
 } from "firebase/firestore";
 
 export const useStore = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
 
-  // 1. Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
@@ -50,7 +46,6 @@ export const useStore = () => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Firestore Sync (Transactions)
   useEffect(() => {
     if (!currentUser) {
       setTransactions([]);
@@ -66,29 +61,6 @@ export const useStore = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // 3. Firestore Sync (Budgets)
-  useEffect(() => {
-    if (!currentUser) {
-      setBudgets([]);
-      return;
-    }
-
-    const q = query(collection(db, "budgets"), where("userId", "==", currentUser.id));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => doc.data()) as Budget[];
-      if (data.length === 0) {
-        // Initial Total Budget if none exists
-        const initialBudget: Budget = { userId: currentUser.id, category: 'Total', limit: 50000 };
-        setDoc(doc(db, "budgets", `${currentUser.id}_total`), initialBudget);
-      } else {
-        setBudgets(data);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
-  // AUTH ACTIONS
   const login = useCallback(async (email: string, pass: string) => {
     try {
       const res = await signInWithEmailAndPassword(auth, email, pass);
@@ -133,12 +105,13 @@ export const useStore = () => {
     }
   }, []);
 
-  // DATA ACTIONS
-  const addTransaction = useCallback(async (t: Omit<Transaction, 'id' | 'userId'>) => {
+  const addTransaction = useCallback(async (t: any) => {
     if (!currentUser) return;
+    const { id, ...sanitizedData } = t;
     await addDoc(collection(db, "transactions"), {
-      ...t,
-      userId: currentUser.id
+      ...sanitizedData,
+      userId: currentUser.id,
+      createdAt: new Date().toISOString()
     });
   }, [currentUser]);
 
@@ -151,21 +124,10 @@ export const useStore = () => {
     await updateDoc(doc(db, "transactions", id), data as any);
   }, []);
 
-  const updateBudget = useCallback(async (category: Category | 'Total', limit: number) => {
-    if (!currentUser) return;
-    const budgetId = `${currentUser.id}_${category.replace(/\s+/g, '_')}`;
-    await setDoc(doc(db, "budgets", budgetId), {
-      userId: currentUser.id,
-      category,
-      limit
-    });
-  }, [currentUser]);
-
   return {
     currentUser,
     loading,
     transactions,
-    budgets,
     login,
     signup,
     logout,
@@ -173,7 +135,6 @@ export const useStore = () => {
     requestPasswordReset,
     addTransaction,
     deleteTransaction,
-    updateTransaction,
-    updateBudget
+    updateTransaction
   };
 };

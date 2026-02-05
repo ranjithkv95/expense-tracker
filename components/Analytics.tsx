@@ -8,91 +8,124 @@ import { Transaction } from '../types';
 import { CATEGORIES_CONFIG, INR_FORMATTER } from '../constants';
 
 interface Props {
-  transactions: Transaction[]; // Filtered to current month
-  fullHistory: Transaction[]; // Complete list
+  transactions: Transaction[]; 
+  fullHistory: Transaction[]; 
+  viewingYear: number;
 }
 
-const Analytics: React.FC<Props> = ({ transactions, fullHistory }) => {
+const Analytics: React.FC<Props> = ({ transactions, fullHistory, viewingYear }) => {
   const [reportType, setReportType] = useState<'category' | 'time' | 'annual'>('category');
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterCategory, setFilterCategory] = useState('all');
 
-  // 1. Weekly Breakdown for current month
+  // Logic to determine which dataset to use based on report level
+  const baseData = useMemo(() => {
+    if (reportType === 'annual') {
+      return fullHistory.filter(t => new Date(t.date).getFullYear() === viewingYear);
+    }
+    return transactions;
+  }, [reportType, fullHistory, transactions, viewingYear]);
+
+  const filteredTransactions = useMemo(() => {
+    return baseData.filter(t => {
+      const matchType = filterType === 'all' || t.type === filterType;
+      const matchCat = filterCategory === 'all' || t.category === filterCategory;
+      return matchType && matchCat;
+    });
+  }, [baseData, filterType, filterCategory]);
+
   const weeklyData = useMemo(() => {
     const weeks: Record<string, number> = { 'Week 1': 0, 'Week 2': 0, 'Week 3': 0, 'Week 4': 0, 'Week 5+': 0 };
-    transactions.forEach(t => {
+    filteredTransactions.forEach(t => {
       const day = new Date(t.date).getDate();
-      if (t.type === 'expense') {
-        if (day <= 7) weeks['Week 1'] += t.amount;
-        else if (day <= 14) weeks['Week 2'] += t.amount;
-        else if (day <= 21) weeks['Week 3'] += t.amount;
-        else if (day <= 28) weeks['Week 4'] += t.amount;
-        else weeks['Week 5+'] += t.amount;
-      }
+      if (day <= 7) weeks['Week 1'] += t.amount;
+      else if (day <= 14) weeks['Week 2'] += t.amount;
+      else if (day <= 21) weeks['Week 3'] += t.amount;
+      else if (day <= 28) weeks['Week 4'] += t.amount;
+      else weeks['Week 5+'] += t.amount;
     });
     return Object.entries(weeks).map(([name, amount]) => ({ name, amount }));
-  }, [transactions]);
+  }, [filteredTransactions]);
 
-  // 2. Category Share
   const categoryData = useMemo(() => {
-    const grouped = transactions.filter(t => t.type === 'expense').reduce((acc, t) => {
+    const grouped = filteredTransactions.reduce((acc, t) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
 
-    // Fix: Explicitly cast Object.entries to [string, number][] to resolve 'unknown' type error on line 43
     return (Object.entries(grouped) as [string, number][]).map(([name, value]): { name: string; value: number; color: string } => ({
       name,
       value,
       color: CATEGORIES_CONFIG.find(c => c.name === name)?.color || '#ccc'
     })).sort((a, b) => b.value - a.value);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
-  // 3. Annual Comparison (Last 12 Months)
   const annualTrends = useMemo(() => {
-    const months = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const monthKey = d.toLocaleString('default', { month: 'short' });
-      const year = d.getFullYear();
-      
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return months.map((month, idx) => {
       const monthData = fullHistory.filter(t => {
-        const td = new Date(t.date);
-        return td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear();
+        const d = new Date(t.date);
+        return d.getMonth() === idx && d.getFullYear() === viewingYear;
       });
 
-      months.push({
-        name: monthKey,
+      return {
+        name: month,
         income: monthData.filter(t => t.type === 'income').reduce((s,t) => s+t.amount, 0),
         expense: monthData.filter(t => t.type === 'expense').reduce((s,t) => s+t.amount, 0),
-      });
-    }
-    return months;
-  }, [fullHistory]);
+      };
+    });
+  }, [fullHistory, viewingYear]);
 
   return (
     <div className="space-y-6">
-      {/* Sub-Tabs for Reports */}
-      <div className="flex bg-white p-1 rounded-2xl border border-gray-100 w-fit">
-        {['category', 'time', 'annual'].map((type) => (
-          <button 
-            key={type}
-            onClick={() => setReportType(type as any)}
-            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              reportType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600'
-            }`}
+      <div className="bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex bg-gray-50 p-1.5 rounded-2xl">
+          {['category', 'time', 'annual'].map((type) => (
+            <button 
+              key={type}
+              onClick={() => setReportType(type as any)}
+              className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                reportType === type ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <select 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className="px-4 py-2 bg-gray-50 rounded-xl text-xs font-bold text-gray-500 outline-none hover:bg-gray-100 transition-colors"
           >
-            {type}
-          </button>
-        ))}
+            <option value="all">All Flow Types</option>
+            <option value="income">Income Only</option>
+            <option value="expense">Expenses Only</option>
+          </select>
+          <select 
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="px-4 py-2 bg-gray-50 rounded-xl text-xs font-bold text-gray-500 outline-none hover:bg-gray-100 transition-colors"
+          >
+            <option value="all">All Categories</option>
+            {CATEGORIES_CONFIG.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Dynamic Chart Container */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm min-h-[450px] flex flex-col">
-          <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-            <span>{reportType === 'category' ? 'Spending Share' : reportType === 'time' ? 'Weekly Pulse' : 'Annual Cash Flow'}</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-          </h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm min-h-[500px] flex flex-col">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-gray-900 capitalize">
+                {reportType === 'category' ? 'Categorical Contribution' : reportType === 'time' ? 'Monthly Velocity' : 'Yearly Financial Trend'}
+              </h3>
+              <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-[0.2em]">
+                {reportType === 'annual' ? `Full visibility of ${viewingYear}` : 'Drill-down insights for the selected period'}
+              </p>
+            </div>
+          </div>
 
           <div className="flex-1 min-h-0">
             {reportType === 'category' && (
@@ -102,17 +135,21 @@ const Analytics: React.FC<Props> = ({ transactions, fullHistory }) => {
                     data={categoryData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={90}
-                    outerRadius={125}
-                    paddingAngle={5}
+                    innerRadius={100}
+                    outerRadius={140}
+                    paddingAngle={8}
                     dataKey="value"
+                    stroke="none"
                   >
                     {categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => INR_FORMATTER.format(v)} />
-                  <Legend verticalAlign="bottom" align="center" iconType="circle" />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
+                    formatter={(v: number) => [INR_FORMATTER.format(v), 'Total']}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -121,10 +158,10 @@ const Analytics: React.FC<Props> = ({ transactions, fullHistory }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: '700'}} dy={10} />
                   <YAxis hide />
                   <Tooltip cursor={{fill: '#f8fafc'}} formatter={(v: number) => INR_FORMATTER.format(v)} />
-                  <Bar dataKey="amount" fill="#6366f1" radius={[8, 8, 0, 0]} barSize={40} />
+                  <Bar dataKey="amount" fill="#6366f1" radius={[12, 12, 4, 4]} barSize={50} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -133,17 +170,17 @@ const Analytics: React.FC<Props> = ({ transactions, fullHistory }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={annualTrends}>
                   <defs>
-                    <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: '700'}} />
                   <YAxis hide />
                   <Tooltip formatter={(v: number) => INR_FORMATTER.format(v)} />
-                  <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorInc)" strokeWidth={3} />
-                  <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="transparent" strokeWidth={3} strokeDasharray="5 5" />
+                  <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="transparent" strokeWidth={4} />
+                  <Area type="monotone" dataKey="expense" stroke="#ef4444" fillOpacity={1} fill="url(#colorTrend)" strokeWidth={4} />
                   <Legend verticalAlign="top" align="right" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -151,37 +188,43 @@ const Analytics: React.FC<Props> = ({ transactions, fullHistory }) => {
           </div>
         </div>
 
-        {/* Breakdown Table */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-          <h3 className="text-lg font-black text-gray-800 mb-6">Detailed Bifurcation</h3>
-          <div className="flex-1 overflow-y-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                <tr>
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3 text-right">Share</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {categoryData.map(item => (
-                  <tr key={item.name}>
-                    <td className="px-4 py-4">
+        <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col">
+          <h3 className="text-xl font-black text-gray-900 mb-2">Detailed Ledger</h3>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">Raw contribution breakdown</p>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+            {categoryData.length === 0 ? (
+              <div className="text-center py-20 text-gray-300 text-sm italic font-medium">No split data found</div>
+            ) : (
+              categoryData.map(item => {
+                const total = categoryData.reduce((s,i) => s+i.value, 0);
+                const percent = total > 0 ? Math.round((item.value / total) * 100) : 0;
+                return (
+                  <div key={item.name} className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="font-bold text-gray-700">{item.name}</span>
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="font-black text-gray-700 text-sm">{item.name}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 text-right font-black text-gray-900">{INR_FORMATTER.format(item.value)}</td>
-                    <td className="px-4 py-4 text-right">
-                      <span className="text-xs font-bold text-gray-400">
-                        {Math.round((item.value / categoryData.reduce((s,i) => s+i.value, 0)) * 100)}%
+                      <span className="font-black text-gray-900">{INR_FORMATTER.format(item.value)}</span>
+                    </div>
+                    <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full transition-all duration-1000" 
+                        style={{ 
+                          backgroundColor: item.color, 
+                          width: `${percent}%` 
+                        }} 
+                      />
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        {percent}% share
                       </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       </div>

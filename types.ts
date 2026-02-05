@@ -23,17 +23,18 @@ export interface User {
 
 export interface Transaction {
   id: string;
-  userId: string; // Critical for SaaS isolation
+  userId: string;
   title: string;
   amount: number;
   category: Category;
   type: TransactionType;
   date: string; // ISO string
   notes?: string;
+  createdAt?: string;
 }
 
+// Fix: Added missing Budget interface to support budget management features in BudgetPanel.tsx
 export interface Budget {
-  userId: string; // Isolated per user
   category: Category | 'Total';
   limit: number;
 }
