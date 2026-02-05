@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, 
@@ -37,8 +38,8 @@ const Analytics: React.FC<Props> = ({ transactions, fullHistory }) => {
       return acc;
     }, {} as Record<string, number>);
 
-    // Added explicit return type to map to ensure 'value' is recognized as a number during sorting
-    return Object.entries(grouped).map(([name, value]): { name: string; value: number; color: string } => ({
+    // Fix: Explicitly cast Object.entries to [string, number][] to resolve 'unknown' type error on line 43
+    return (Object.entries(grouped) as [string, number][]).map(([name, value]): { name: string; value: number; color: string } => ({
       name,
       value,
       color: CATEGORIES_CONFIG.find(c => c.name === name)?.color || '#ccc'

@@ -5,8 +5,8 @@ import { INR_FORMATTER, CATEGORIES_CONFIG } from '../constants';
 import TransactionForm from './TransactionForm';
 
 interface Props {
-  transactions: Transaction[]; // Period-specific
-  allTransactions: Transaction[]; // For full export
+  transactions: Transaction[]; 
+  allTransactions: Transaction[]; 
   onAdd: (t: any) => void;
   onUpdate: (t: any) => void;
   onDelete: (id: string) => void;
@@ -35,7 +35,6 @@ const Dashboard: React.FC<Props> = ({ transactions, allTransactions, onAdd, onUp
   }, [finalTransactions]);
 
   const exportDetailedExcel = () => {
-    // Generate detailed CSV with comprehensive columns
     const headers = ["Date", "Description", "Type", "Category", "Amount (INR)", "Impact", "Notes"];
     const rows = allTransactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(t => [
       new Date(t.date).toISOString().split('T')[0],
@@ -50,7 +49,7 @@ const Dashboard: React.FC<Props> = ({ transactions, allTransactions, onAdd, onUp
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `RupeeFlow_Detailed_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `RupeeFlow_Export_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

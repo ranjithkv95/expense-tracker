@@ -8,8 +8,8 @@ interface Props {
   // Use Transaction array instead of Expense array
   expenses: Transaction[];
   onDelete: (id: string) => void;
-  // Use Transaction for addition, omitting id
-  onAdd: (expense: Omit<Transaction, 'id'>) => void;
+  // Use Transaction for addition, omitting id and userId to match store signature
+  onAdd: (expense: Omit<Transaction, 'id' | 'userId'>) => void;
 }
 
 const ExpenseList: React.FC<Props> = ({ expenses, onDelete, onAdd }) => {

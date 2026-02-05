@@ -3,16 +3,17 @@ import { GoogleGenAI } from "@google/genai";
 import { Transaction, Budget } from "../types";
 
 export class GeminiService {
-  private ai: GoogleGenAI;
-
-  constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-  }
-
+  /**
+   * Generates financial advice based on transaction patterns and budgets.
+   * Initializes a new GoogleGenAI instance right before use to ensure the most current configuration is used.
+   */
   async getFinancialAdvice(transactions: Transaction[], budgets: Budget[]): Promise<string> {
     try {
       if (transactions.length === 0) return "Add some transactions for this month to get AI feedback! ✨";
 
+      // Initialize GoogleGenAI right before use to follow SDK guidelines
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+      
       const summary = transactions.slice(0, 20).map(t => `${t.type}: ₹${t.amount} (${t.category})`).join(', ');
       
       const prompt = `
@@ -21,14 +22,19 @@ export class GeminiService {
         Format: Bullet points. One for savings, one for specific category observation, one general.
       `;
 
-      const response = await this.ai.models.generateContent({
+      // Use the recommended model for text tasks
+      const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
-        config: { temperature: 0.5 }
+        config: { 
+          temperature: 0.5 
+        }
       });
 
+      // Directly access the .text property from GenerateContentResponse
       return response.text || "Tracking well! Keep going.";
     } catch (error) {
+      console.error("Gemini AI Feedback Error:", error);
       return "Unable to connect to AI advisor. Please try later.";
     }
   }

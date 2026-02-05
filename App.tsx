@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Layout from './components/Layout';
+import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import BudgetPanel from './components/BudgetPanel';
 import AIFeedback from './components/AIFeedback';
@@ -11,6 +12,13 @@ type Tab = 'transactions' | 'analytics' | 'budgets' | 'insights';
 
 const App: React.FC = () => {
   const { 
+    currentUser,
+    loading,
+    login,
+    signup,
+    logout,
+    requestPasswordReset,
+    loginWithGoogle,
     transactions, 
     budgets, 
     addTransaction, 
@@ -22,7 +30,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('transactions');
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Period Filtered Data
   const filteredData = useMemo(() => {
     return transactions.filter(t => {
       const d = new Date(t.date);
@@ -37,10 +44,34 @@ const App: React.FC = () => {
     { id: 'insights', label: 'AI Advisor', icon: '🤖' },
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 space-y-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-gray-500 font-bold animate-pulse">Syncing RupeeFlow...</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <Auth 
+        onLogin={login} 
+        onSignup={signup} 
+        onForgotPass={requestPasswordReset}
+        onGoogleLogin={loginWithGoogle}
+      />
+    );
+  }
+
   return (
-    <Layout currentDate={currentDate} onDateChange={setCurrentDate}>
+    <Layout 
+      currentDate={currentDate} 
+      onDateChange={setCurrentDate}
+      user={currentUser}
+      onLogout={logout}
+    >
       <div className="space-y-6">
-        {/* Tab Navigation */}
         <div className="flex items-center space-x-1 bg-gray-100 p-1.5 rounded-2xl w-fit mx-auto sm:mx-0">
           {tabs.map(tab => (
             <button
@@ -58,12 +89,11 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {/* Dynamic Content */}
         <div className="animate-in fade-in slide-in-from-top-2 duration-500">
           {activeTab === 'transactions' && (
             <Dashboard 
               transactions={filteredData} 
-              allTransactions={transactions} // For detailed export across history
+              allTransactions={transactions} 
               onAdd={addTransaction} 
               onUpdate={updateTransaction}
               onDelete={deleteTransaction}
